@@ -12,13 +12,25 @@ Data engineering project to create an nba stat pipeline for the 26-27 season
 
 Run this from your own machine; stats.nba.com often rejects cloud and data-center IPs.
 
+macOS / Linux:
+
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -e ".[dev]"
-
 python -m ingestion.spike_one_date --date 2026-03-15
 ```
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+python -m ingestion.spike_one_date --date 2026-03-15
+```
+
+If PowerShell refuses to run `Activate.ps1`, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once and try again.
 
 Raw JSON lands in `data/raw/` (gitignored), partitioned the same way the Phase 1 S3 keys will be:
 
