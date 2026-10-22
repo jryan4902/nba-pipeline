@@ -4,7 +4,7 @@ Usage:
     from ingestion.nba_client import BOX_SCORE_ENDPOINTS, fetch_with_retry, utc_stamp
     payload = fetch_with_retry(ScoreboardV3, DEFAULT_TIMEOUT_SECONDS, game_date="2026-03-15")
 
-Used by ingestion.ingest and the Phase 0 spike.
+Used by ingestion.ingest.
 """
 
 from __future__ import annotations

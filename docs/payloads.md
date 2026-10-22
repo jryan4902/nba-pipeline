@@ -3,6 +3,7 @@
 What the Phase 0 spike actually saves, based on the files in `data/raw/`. Sample: 3 runs, 12 games
 (2026-03-15: 7 regular-season games, pulled twice; 2026-10-05: 5 preseason games). Every file is the
 endpoint's response unchanged, with two top-level keys: `meta` (`version`, `request`, `time`) and the payload.
+The same layout lives in S3 under `raw/`: `data/raw/<path>` locally is `s3://<bucket>/raw/<path>`.
 
 ## Scoreboard (`ScoreboardV3`)
 
