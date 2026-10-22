@@ -181,6 +181,30 @@ def test_failed_scoreboard_skips_that_date_only(monkeypatch):
     assert ingest.report(summaries) == 1
 
 
+def test_log_file_gets_summary_lines_and_appends(tmp_path):
+    log_file = tmp_path / "logs" / "nested" / "nightly.log"  # parent folders don't exist yet
+    argv = ["--date", "2026-10-20", "--local", str(tmp_path / "raw"), "--sleep", "0", "--log-file", str(log_file)]
+
+    assert ingest.main(argv) == 0
+    assert ingest.main(argv) == 0  # second run gets a new pulled_at, so no overwrite
+
+    text = log_file.read_text(encoding="utf-8")
+    assert text.count("2026-10-20: 2 games, 4 box scores saved, 0 skipped, 0 failures") == 2
+    assert text.count("Total: 1 dates, 2 games, 4 box scores saved, 0 skipped, 0 failures") == 2
+
+
+def test_unexpected_crash_is_logged_to_file(tmp_path, monkeypatch):
+    def broken_run(*args, **kwargs):
+        raise RuntimeError("AccessDenied on PutObject")
+
+    monkeypatch.setattr(ingest, "run", broken_run)
+    log_file = tmp_path / "nightly.log"
+
+    assert ingest.main(["--date", "2026-10-20", "--local", str(tmp_path / "raw"), "--log-file", str(log_file)]) == 1
+    text = log_file.read_text(encoding="utf-8")
+    assert "Ingest crashed" in text and "AccessDenied on PutObject" in text
+
+
 def test_already_exists_is_recorded_as_failure():
     class ExistingWriter(FakeWriter):
         def write(self, key, payload):
