@@ -7,7 +7,7 @@ Usage:
     LocalWriter(Path("data/raw")).write(key, payload)   # data/raw/<key>
     S3Writer.from_settings(settings).write(key, payload)  # s3://<bucket>/raw/<key>
 
-Key layout (matches the Phase 0 spike):
+Key layout:
     <endpoint>/game_date=<YYYY-MM-DD>/<pulled_at>.json
     <endpoint>/game_date=<YYYY-MM-DD>/<game_id>/<pulled_at>.json
 
