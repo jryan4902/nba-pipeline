@@ -7,6 +7,7 @@ Usage:
     python -m ingestion.ingest --nightly --days 5
     python -m ingestion.ingest --date 2026-10-21 --local            # data/raw instead of S3
     python -m ingestion.ingest --date 2026-10-21 --local some/dir
+    python -m ingestion.ingest --nightly --log-file logs/nightly.log   # also append the log to a file
 
 Keys (see ingestion.storage.raw_key), all sharing one pulled_at per run:
     scoreboard/game_date=<date>/<pulled_at>.json
@@ -42,6 +43,8 @@ from ingestion.nba_client import (
 from ingestion.storage import AlreadyExistsError, LocalWriter, S3Writer, Writer, raw_key
 
 log = logging.getLogger("ingest")
+
+LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 
 # NBA game dates are Eastern, so "yesterday" must be too.
 EASTERN = ZoneInfo("America/New_York")
@@ -185,6 +188,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--sleep", default=DEFAULT_SLEEP_SECONDS, type=float, help="Seconds between API calls")
     parser.add_argument("--timeout", default=DEFAULT_TIMEOUT_SECONDS, type=int, help="Per-request timeout in seconds")
+    parser.add_argument("--log-file", type=Path, metavar="PATH", help="Also append the log to this file (UTF-8)")
     args = parser.parse_args(argv)
 
     if args.start and not args.end:
@@ -206,16 +210,37 @@ def make_writer(local_root: Path | None) -> Writer:
     return S3Writer.from_settings(load_settings())
 
 
+def add_file_handler(log_file: Path) -> logging.Handler:
+    """Append the root log to log_file as well as the console."""
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+    handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)  # basicConfig is a no-op if something already configured the root logger
+    root.addHandler(handler)
+    return handler
+
+
 def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     args = parse_args(argv)
-    dates = resolve_dates(args, eastern_today())
+    file_handler = add_file_handler(args.log_file) if args.log_file else None
     try:
-        writer = make_writer(args.local)
-    except ConfigError as exc:
-        log.error("Config error: %s", exc)
+        dates = resolve_dates(args, eastern_today())
+        try:
+            writer = make_writer(args.local)
+        except ConfigError as exc:
+            log.error("Config error: %s", exc)
+            return 1
+        return report(run(dates, writer, args.sleep, args.timeout))
+    except Exception:
+        # Unattended runs only leave the log file behind, so put unexpected crashes (e.g. S3 AccessDenied) in it.
+        log.exception("Ingest crashed")
         return 1
-    return report(run(dates, writer, args.sleep, args.timeout))
+    finally:
+        if file_handler:
+            logging.getLogger().removeHandler(file_handler)
+            file_handler.close()
 
 
 if __name__ == "__main__":
